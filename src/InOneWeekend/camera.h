@@ -37,41 +37,44 @@ class camera {
     void render(const hittable& world) {
         initialize();
 
-        std::cout << "P3\n" << image_width << ' ' << image_height << "\n255\n";
+        std::clog << "P3\n" << image_width << ' ' << image_height << "\n255\n" << std::endl;
 
         int core_count = 6;
         int image_size_in_bytes = sizeof(color) * image_width * image_height;
         color *rendered_image = (color *) mmap(nullptr, image_size_in_bytes,
         PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
 
-        for (int j = 0; j < image_height; j++) {
-            std::clog << "\rScanlines remaining: " << (image_height - j) << ' ' << std::flush;
+        int render_tile_size = image_height / core_count;
 
-            //Start to create the child proccesses
-            for (int i = 0; i < core_count; i++) {
-                pid_t pid = fork();
-                if (pid == -1) {
-                    //Error
-                    printf("Error forking process\n");
-                    exit(EXIT_FAILURE);
-                }
-                else if (pid == 0) {
-                    //Child proccess
-                    printf("Created child process number: %d\n", i);
-                    int start_j = j * (image_height / core_count);
-                    render_line(start_j, world, rendered_image);
-                    printf("process %d\n finished", i);
-                    exit(0);
-                }
+        //Start to create the child proccesses
+        for (int i = 0; i < core_count; i++) {
+            pid_t pid = fork();
+            if (pid == -1) {
+                //Error
+                printf("Error forking process\n");
+                exit(EXIT_FAILURE);
             }
+            else if (pid == 0) {
+                //Child proccess
+                std::clog << "Created child process number: " << i << std::endl;
+                int j = i*render_tile_size;
+                while (j < j+(i*render_tile_size)) {
+                    render_line(j, world, rendered_image);
+                    j++;
+                }
 
-            //Write the calculated pixels
-            for (int i = 0; i < image_size_in_bytes; i++) {
-                color color = rendered_image[i];
-                write_color(std::cout, color);
+                std::clog << "process" << i << "finished" << std::endl;
+                exit(0);
             }
         }
 
+        //Wait for the processes to finish
+        wait_for_children(core_count);
+
+        //Write the calculated pixels
+        for (int i = 0; i < image_width * image_height; i++) {
+            write_color(std::cout, rendered_image[i]);
+        }
         std::clog << "\rDone.                 \n";
     }
 
@@ -93,9 +96,22 @@ class camera {
                 ray r = get_ray(i, j);
                 pixel_color += ray_color(r, max_depth, world);
             }
-            int pixel_memmory_adress = (j+1)+(i+1);
+            int pixel_memmory_adress = j * image_width + i;
             rendered_image[pixel_memmory_adress] = pixel_color * pixel_samples_scale;
         }
+    }
+
+    void wait_for_children(int n) {
+        while (n > 0) {
+            pid_t pid = wait(NULL);
+            if (pid == -1) {
+                printf("Wait failed.\n");
+                exit(1);
+            }
+            std::clog << "child number" << n << " finished" << std::endl;
+            n--;
+        }
+
     }
 
     void initialize() {
