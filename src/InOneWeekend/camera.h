@@ -11,8 +11,12 @@
 // along with this software. If not, see <http://creativecommons.org/publicdomain/zero/1.0/>.
 //==============================================================================================
 
+#include <unistd.h>
+
 #include "hittable.h"
 #include "material.h"
+#include <sys/mman.h>
+#include <sys/wait.h>
 
 
 class camera {
@@ -35,9 +39,37 @@ class camera {
 
         std::cout << "P3\n" << image_width << ' ' << image_height << "\n255\n";
 
+        int core_count = 6;
+        int image_size_in_bytes = sizeof(color) * image_width * image_height;
+        color *rendered_image = (color *) mmap(nullptr, image_size_in_bytes,
+        PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
+
         for (int j = 0; j < image_height; j++) {
             std::clog << "\rScanlines remaining: " << (image_height - j) << ' ' << std::flush;
-            render_line(j, world);
+
+            //Start to create the child proccesses
+            for (int i = 0; i < core_count; i++) {
+                pid_t pid = fork();
+                if (pid == -1) {
+                    //Error
+                    printf("Error forking process\n");
+                    exit(EXIT_FAILURE);
+                }
+                else if (pid == 0) {
+                    //Child proccess
+                    printf("Created child process number: %d\n", i);
+                    int start_j = j * (image_height / core_count);
+                    render_line(start_j, world, rendered_image);
+                    printf("process %d\n finished", i);
+                    exit(0);
+                }
+            }
+
+            //Write the calculated pixels
+            for (int i = 0; i < image_size_in_bytes; i++) {
+                color color = rendered_image[i];
+                write_color(std::cout, color);
+            }
         }
 
         std::clog << "\rDone.                 \n";
@@ -54,14 +86,15 @@ class camera {
     vec3   defocus_disk_u;       // Defocus disk horizontal radius
     vec3   defocus_disk_v;       // Defocus disk vertical radius
 
-    void render_line(int j, const hittable& world) {
+    void render_line(int j, const hittable& world, color* rendered_image) {
         for (int i = 0; i < image_width; i++) {
             color pixel_color(0,0,0);
             for (int sample = 0; sample < samples_per_pixel; sample++) {
                 ray r = get_ray(i, j);
                 pixel_color += ray_color(r, max_depth, world);
             }
-            write_color(std::cout, pixel_samples_scale * pixel_color);
+            int pixel_memmory_adress = (j+1)+(i+1);
+            rendered_image[pixel_memmory_adress] = pixel_color * pixel_samples_scale;
         }
     }
 
