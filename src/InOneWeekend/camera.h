@@ -41,7 +41,7 @@ class camera {
 
         std::clog << "P3\n" << image_width << ' ' << image_height << "\n255\n" << std::endl;
 
-        int core_count = 6;
+        int core_count = 12;
         int image_size_in_bytes = sizeof(color) * image_width * image_height;
         color *rendered_image = (color *) mmap(nullptr, image_size_in_bytes,
         PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
