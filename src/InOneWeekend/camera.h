@@ -22,7 +22,7 @@
 class camera {
   public:
     double aspect_ratio      = 1.0;  // Ratio of image width over height
-    int    image_width       = 100;  // Rendered image width in pixel count
+    int    image_width       = 60;  // Rendered image width in pixel count
     int    samples_per_pixel = 10;   // Count of random samples for each pixel
     int    max_depth         = 10;   // Maximum number of ray bounces into scene
 
@@ -36,6 +36,8 @@ class camera {
 
     void render(const hittable& world) {
         initialize();
+
+        std::cout << "P3\n" << image_width << ' ' << image_height << "\n255\n";
 
         std::clog << "P3\n" << image_width << ' ' << image_height << "\n255\n" << std::endl;
 
@@ -57,13 +59,12 @@ class camera {
             else if (pid == 0) {
                 //Child proccess
                 std::clog << "Created child process number: " << i << std::endl;
-                int j = i*render_tile_size;
-                while (j < j+(i*render_tile_size)) {
+                int start = i*render_tile_size;
+                int j = start;
+                while (j < start + render_tile_size) {
                     render_line(j, world, rendered_image);
                     j++;
                 }
-
-                std::clog << "process" << i << "finished" << std::endl;
                 exit(0);
             }
         }
@@ -108,7 +109,7 @@ class camera {
                 printf("Wait failed.\n");
                 exit(1);
             }
-            std::clog << "child number" << n << " finished" << std::endl;
+            std::clog << "process finished" << std::endl;
             n--;
         }
 
