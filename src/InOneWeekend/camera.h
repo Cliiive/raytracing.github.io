@@ -37,9 +37,7 @@ class camera {
     void render(const hittable& world) {
         initialize();
 
-        std::cout << "P3\n" << image_width << ' ' << image_height << "\n255\n";
-
-        std::clog << "P3\n" << image_width << ' ' << image_height << "\n255\n" << std::endl;
+        std::cout << "P3\n" << image_width << ' ' << image_height << "\n255\n" << std::endl;
 
         int core_count = 12;
         int image_size_in_bytes = sizeof(color) * image_width * image_height;
@@ -60,8 +58,9 @@ class camera {
                 //Child proccess
                 std::clog << "Created child process number: " << i << std::endl;
                 int start = i*render_tile_size;
+                int end = (i == core_count - 1) ? image_height : (start + render_tile_size);
                 int j = start;
-                while (j < start + render_tile_size) {
+                while (j < end) {
                     render_line(j, world, rendered_image);
                     j++;
                 }
